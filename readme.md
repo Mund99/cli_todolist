@@ -14,7 +14,7 @@ Task Tracker CLI is a simple command-line tool for managing your tasks. You can 
 No external dependencies are required. Just clone this repository and run the script using Python.
 
 ```bash
-git clone <repository-url>
+git clone <https://github.com/Mund99/cli_todolist>
 cd task-tracker-cli
 python task_cli.py
 ```
