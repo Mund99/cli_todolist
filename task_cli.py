@@ -1,166 +1,139 @@
-import json 
-import os 
-from datetime import datetime 
 import argparse
+from pathlib import Path
+import textwrap
+from typing import Optional, Union, List
+from tabulate import tabulate
 
-TASKS_FILE = "tasks.json"
+from task_manager import TaskManager
 
-def load_tasks():
-    """Load tasks from the JSON file."""
-    if not os.path.exists(TASKS_FILE):
-        return []
-    
-    try:
-        with open(TASKS_FILE, "r") as file:
-            content = file.read().strip()
-            if not content:  # If file is empty
-                return []
-            return json.loads(content)
-    except json.JSONDecodeError:
-        # If there's an error decoding JSON, return an empty list
-        print(f"Warning: {TASKS_FILE} contains invalid JSON. Starting with an empty task list.")
-        return []
-    
-def save_tasks(tasks):
-    """Save tasks to the JSON file."""
-    # Create the directory if it doesn't exist
-    directory = os.path.dirname(TASKS_FILE)
-    if directory and not os.path.exists(directory):
-        os.makedirs(directory)
-        
-    # Save the tasks to the file
-    with open(TASKS_FILE, "w") as file:
-        json.dump(tasks, file, indent=4)
-        
-def add_task(description):
-    """Add a new task."""
-    tasks = load_tasks()
-    new_id = max([task["id"] for task in tasks], default=0) + 1
-    current_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    
-    new_task = {
-        "id": new_id,
-        "description": description,
-        "status": "todo",
-        "created_at": current_datetime,
-        "updated_at": current_datetime,
-    }
 
-    tasks.append(new_task)
-    save_tasks(tasks)
-    print(f"Task {new_id} added successfully.")
-    
-def update_task(task_id, description):
-    """Update an existing task."""
-    tasks = load_tasks()
-    current_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    
-    for task in tasks:
-        if task["id"] == task_id:
-            task["description"] = description
-            task["updated_at"] = current_datetime
-            save_tasks(tasks)
-            print(f"Task {task_id} updated successfully.")
-            return
-        
-    print(f"Task {task_id} not found.")
+class TaskCLI:
+    """Command-line interface for the Task Tracker application."""
 
-def delete_task(task_id):
-    """Delete a task by ID."""
-    tasks = load_tasks()
-    tasks = [task for task in tasks if task["id"] != task_id]
-    save_tasks(tasks)
-    print(f"Task {task_id} deleted successfully.")
+    def __init__(self, tasks_file: Optional[Union[str, Path]] = None) -> None:
+        """Initialize the CLI with a TaskManager instance.
 
-def change_status(task_id, status):
-    """Change the status of a task."""
-    STATUSES = ["todo", "in_progress", "done"]
-    tasks = load_tasks()
-    current_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    
-    for task in tasks:
-        if task["id"] == task_id:
-            task["status"] = status
-            task["updated_at"] = current_datetime
-            save_tasks(tasks)
-            print(f"Task {task_id} status changed to {status}.")
-            return
-    print(f"Task {task_id} not found.")
-    
-def list_tasks(status=None):
-    """List tasks optionally filtered by status."""
-    tasks = load_tasks()
-    if status:
-        tasks = [task for task in tasks if task["status"] == status]
-        
-    if not tasks:
-        print("No tasks found.")
-        return
-        
-    for task in tasks:
-        print(f'{task["id"]}: {task["description"]}, Status: {task["status"]}, Updated: {task["updated_at"]}')
-        
+        Args:
+            tasks_file: Path to the tasks file (optional)
+        """
+        self.task_manager = TaskManager(tasks_file or "tasks.json")
 
-def print_help():
-    """Print custom help message."""
-    print("Usage:")
-    print("  add <description>           - Add a new task")
-    print("  update <id> <description>   - Update a task")
-    print("  delete <id>                 - Delete a task")
-    print("  mark <id> <status>          - Change task status (todo, in-progress, done)")
-    print("  list                        - List all tasks")
-    print("  list todo                   - List all todo tasks")
-    print("  list in-progress            - List all in-progress tasks")
-    print("  list done                   - List all completed tasks")
+    def print_help(self) -> None:
+        """Print custom help message."""
+        print("Usage:")
+        print("  add <description>           - Add a new task")
+        print("  update <id> <description>   - Update a task")
+        print("  delete <id>                 - Delete a task")
+        print("  mark <id> <status>          - Change task status (todo, in-progress, done)")
+        print("  list                        - List all tasks")
+        print("  list todo                   - List all todo tasks")
+        print("  list in-progress            - List all in-progress tasks")
+        print("  list done                   - List all completed tasks")
 
-def main():
-    parser = argparse.ArgumentParser(description="Task Tracker CLI", add_help=False)
-    subparsers = parser.add_subparsers(dest="command")
+    def handle_add(self, args: argparse.Namespace) -> None:
+        """Handle the 'add' command."""
+        task_id = self.task_manager.add_task(args.description)
+        if task_id is not None:
+            print(f"Task {task_id} added successfully.")
 
-    # Add task
-    subparsers.add_parser("add", help="Add a new task").add_argument("description", type=str, help="Task description")
+    def handle_update(self, args: argparse.Namespace) -> None:
+        """Handle the 'update' command."""
+        if self.task_manager.update_task(args.task_id, args.new_description):
+            print(f"Task {args.task_id} updated successfully.")
 
-    # Update task
-    parser_update = subparsers.add_parser("update", help="Update a task description")
-    parser_update.add_argument("task_id", type=int, help="Task ID")
-    parser_update.add_argument("new_description", type=str, help="New description")
+    def handle_delete(self, args: argparse.Namespace) -> None:
+        """Handle the 'delete' command."""
+        if self.task_manager.delete_task(args.task_id):
+            print(f"Task {args.task_id} deleted successfully.")
 
-    # Delete task
-    parser_delete = subparsers.add_parser("delete", help="Delete a task")
-    parser_delete.add_argument("task_id", type=int, help="Task ID")
-
-    # Mark task status
-    parser_mark = subparsers.add_parser("mark", help="Change task status")
-    parser_mark.add_argument("task_id", type=int, help="Task ID")
-    parser_mark.add_argument("status", choices=["todo", "in-progress", "done"], help="New status")
-
-    # List tasks
-    parser_list = subparsers.add_parser("list", help="List tasks")
-    parser_list.add_argument("status", nargs="?", type=str, choices=["todo", "in-progress", "done"], help="Filter by status")
-
-    # Help
-    subparsers.add_parser("help", help="Show help message")
-
-    args = parser.parse_args()
-
-    # Show help if no arguments are provided or help command is used
-    if not args.command or args.command == "help":
-        print_help()
-    # Execute the corresponding function based on command
-    elif args.command == "add":
-        add_task(args.description)
-    elif args.command == "update":
-        update_task(args.task_id, args.new_description)
-    elif args.command == "delete":
-        delete_task(args.task_id)
-    elif args.command == "mark":
+    def handle_mark(self, args: argparse.Namespace) -> None:
+        """Handle the 'mark' command."""
         # Convert "in-progress" to "in_progress" for consistency
         status = args.status.replace("-", "_")
-        change_status(args.task_id, status)
-    elif args.command == "list":
+        if self.task_manager.change_status(args.task_id, status):
+            print(f"Task {args.task_id} status changed to {status}.")
+
+    def handle_list(self, args: argparse.Namespace) -> None:
+        """Handle the 'list' command."""
         # Convert "in-progress" to "in_progress" if status is provided
         status = args.status.replace("-", "_") if args.status else None
-        list_tasks(status)
+        tasks = self.task_manager.get_tasks(status)
+
+        if not tasks:
+            print("No tasks found.")
+            return
+
+        # Prepare data for tabulate
+        table_data: List[List[Union[int, str]]] = []
+        for task in tasks:
+            # Wrap long descriptions to maintain table readability
+            wrapped_desc = textwrap.fill(task["description"], width=50)
+            # Convert in_progress back to in-progress for display
+            display_status = task["status"].replace("_", "-")
+
+            table_data.append([
+                task["id"],
+                wrapped_desc,
+                display_status,
+                task["updated_at"]
+            ])
+
+        # Print the table
+        headers = ["ID", "Description", "Status", "Last Updated"]
+        print(tabulate(table_data, headers=headers, tablefmt="pretty"))
+
+    def run(self) -> None:
+        """Parse arguments and execute the corresponding command."""
+        parser = argparse.ArgumentParser(description="Task Tracker CLI", add_help=False)
+        subparsers = parser.add_subparsers(dest="command")
+        
+        # Add task
+        add_parser = subparsers.add_parser("add", help="Add a new task")
+        add_parser.add_argument("description", type=str, help="Task description")
+        
+        # Update task
+        update_parser = subparsers.add_parser("update", help="Update a task description")
+        update_parser.add_argument("task_id", type=int, help="Task ID")
+        update_parser.add_argument("new_description", type=str, help="New description")
+        
+        # Delete task
+        delete_parser = subparsers.add_parser("delete", help="Delete a task")
+        delete_parser.add_argument("task_id", type=int, help="Task ID")
+        
+        # Mark task status
+        mark_parser = subparsers.add_parser("mark", help="Change task status")
+        mark_parser.add_argument("task_id", type=int, help="Task ID")
+        mark_parser.add_argument("status", choices=["todo", "in-progress", "done"], help="New status")
+        
+        # List tasks
+        list_parser = subparsers.add_parser("list", help="List tasks")
+        list_parser.add_argument("status", nargs="?", choices=["todo", "in-progress", "done"], help="Filter by status")
+        
+        # Help
+        subparsers.add_parser("help", help="Show help message")
+        
+        args = parser.parse_args()
+        
+        # Route to the appropriate handler based on the command
+        if not args.command or args.command == "help":
+            self.print_help()
+        elif args.command == "add":
+            self.handle_add(args)
+        elif args.command == "update":
+            self.handle_update(args)
+        elif args.command == "delete":
+            self.handle_delete(args)
+        elif args.command == "mark":
+            self.handle_mark(args)
+        elif args.command == "list":
+            self.handle_list(args)
+
+
+def main() -> None:
+    """Main entry point for the application."""
+    cli = TaskCLI()
+    cli.run()
+
 
 if __name__ == "__main__":
     main()

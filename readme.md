@@ -11,15 +11,22 @@ Disclaimer: This project is from roadmap.sh and the link is at [CLI task tracker
 - Mark a task as **todo**, **in-progress**, or **done**
 - List all tasks or filter by status
 - Data is stored in a `tasks.json` file
+- Modern implementation using Python's `pathlib` for file operations
+- Object-oriented design with separation of concerns
+- Robust error handling and input validation
+- Pretty table output formatting (with tabulate library)
 
 ## Installation
-No external dependencies are required. Just clone this repository and run the script using Python.
+Clone this repository and install the required dependencies using pip:
 
 ```bash
 git clone <https://github.com/Mund99/cli_todolist>
-cd task-tracker-cli
+cd cli_todolist
+pip install -r requirements.txt
 python task_cli.py
 ```
+
+The application requires Python 3.4 or newer (Python 3.6+ recommended for full `pathlib` support) and the tabulate library for table formatting.
 
 ## Usage
 
@@ -94,10 +101,28 @@ Each task in `tasks.json` has the following properties:
 - **updated_at**: Timestamp when the task was last updated
 
 ## Error Handling
-- If `tasks.json` does not exist, it will be created automatically.
+- If `tasks.json` does not exist, it will be created automatically when needed.
+- If the parent directory for `tasks.json` doesn't exist, it will be created with `mkdir(parents=True)`.
 - If the JSON file contains invalid data, a warning is shown, and an empty task list is used.
 - If an invalid task ID is provided, an error message is displayed.
 - If an invalid status is provided, an error message is displayed.
+
+## Project Structure
+
+The application is organized into two main modules:
+
+- `task_manager.py` - Core task management functionality
+  - Contains the `TaskManager` class that handles all task operations
+  - Manages data persistence and validation
+  - Provides a clean API for task operations
+
+- `task_cli.py` - Command-line interface
+  - Contains the `TaskCLI` class that handles user interaction
+  - Parses command-line arguments
+  - Routes commands to the appropriate TaskManager methods
+  - Formats and displays output to the user
+
+This separation of concerns makes the code more maintainable and testable.
 
 ## Contributing
 Feel free to fork this repository and make improvements. Pull requests are welcome!
